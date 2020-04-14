@@ -11,6 +11,8 @@ extern "C" {
 #include <intrin.h>
 
 
+#define SVC_NAME L"PlatboxSvc"
+
 #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
 
 #define IOCTL_ISSUE_SW_SMI  CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS)
@@ -28,10 +30,28 @@ extern "C" {
 #define IOCTL_READ_MSR CTL_CODE(FILE_DEVICE_UNKNOWN, 0x80C, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #define IOCTL_WRITE_MSR CTL_CODE(FILE_DEVICE_UNKNOWN, 0x80D, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
+#define IOCTL_PATCH_CALLBACK CTL_CODE(FILE_DEVICE_UNKNOWN, 0x80E, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_RESTORE_CALLBACK CTL_CODE(FILE_DEVICE_UNKNOWN, 0x80F, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_REMOVE_ALL_CALLBACKS_HOOKS CTL_CODE(FILE_DEVICE_UNKNOWN, 0x810, METHOD_BUFFERED, FILE_ANY_ACCESS)
+
 /* Utils */
 void print_memory(unsigned long address, char *buffer, unsigned int bytes_to_print);
 void get_user_input(char *input, int size);
 char **parse_arguments(char *command_line, char arg_delim);
+void hexstring_to_opcodes(char *hexstring, unsigned char **pOpcodes, unsigned int *size);
+
+/* Hook Kernel Callbacks */
+void parse_kernel_hook_operation(HANDLE h, int argc, char **argv);
+typedef struct _PATCH_CALLBACK {
+	PVOID targetAddress;
+	UINT32 contentSize;
+	PVOID patchContent;
+} PATCH_CALLBACK, *PPATCH_CALLBACK;
+
+typedef struct _RESTORE_CALLBACK {
+	PVOID targetAddress;
+} RESTORE_CALLBACK, *PRESTORE_CALLBACK;
+
 
 /* UEFI Vars */ 
 void list_uefi_variables();

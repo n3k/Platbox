@@ -160,6 +160,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="acpidump.cpp" />
+    <ClCompile Include="kernelHookCb.cpp" />
     <ClCompile Include="msr.cpp" />
     <ClCompile Include="pci.cpp" />
     <ClCompile Include="physmem.cpp" />

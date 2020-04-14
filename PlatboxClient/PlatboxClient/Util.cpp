@@ -42,6 +42,28 @@ void get_user_input(char *input, int size) {
 		*pos = '\0';
 }
 
+void hexstring_to_opcodes(char *hexstring, unsigned char **ppOpcodes, unsigned int *size) {
+	char *pos = hexstring;
+	unsigned int len = (strlen(hexstring) / 2) + 1;
+	*size = len - 1;
+	unsigned char *val = (unsigned char *) malloc(len);
+	memset(val, 0x00, len);
+
+	int i = 0;
+	for (i = 0; i < *size; i++) {
+		sscanf(pos, "%2hhx", &val[i]);
+		pos += 2;
+	}
+
+	printf("0x");
+	for (i = 0; i < *size; i++) {
+		printf("%02x", val[i]);
+	}
+	printf("\n");
+
+	*ppOpcodes = val;
+}
+
 // Economou function
 void print_memory(unsigned long address, char *buffer, unsigned int bytes_to_print)
 {

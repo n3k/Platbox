@@ -146,9 +146,11 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CbHooks.c" />
     <ClCompile Include="Platbox.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CbHooks.h" />
     <ClInclude Include="Platbox.h" />
   </ItemGroup>
   <ItemGroup>

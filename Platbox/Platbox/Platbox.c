@@ -1,5 +1,6 @@
 #pragma once
 #include "Platbox.h"
+#include "CbHooks.h"
 
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(INIT, DriverEntry)
@@ -176,6 +177,15 @@ NTSTATUS IrpDeviceIoCtlHandler(IN PDEVICE_OBJECT DeviceObject, IN PIRP Irp) {
 		case IOCTL_WRITE_MSR:
 			Status = WriteMSR(Irp, IrpSp);
 			break;
+		case IOCTL_PATCH_CALLBACK:
+			Status = PatchCallback(Irp, IrpSp);
+			break;
+		case IOCTL_RESTORE_CALLBACK:
+			Status = RestoreCallback(Irp, IrpSp);
+			break;
+		case IOCTL_REMOVE_ALL_CALLBACKS_HOOKS:
+			Status = RemoveAllCallbackHooks(Irp, IrpSp);
+			break;
 		default:
 			DbgPrint("[-] Invalid IOCTL Code: 0x%X\n", IoControlCode);
 			Status = STATUS_INVALID_DEVICE_REQUEST;
@@ -215,6 +225,28 @@ NTSTATUS SendSWSmiHandler(IN PIRP Irp, IN PIO_STACK_LOCATION IrpSp) {
 			Status = GetExceptionCode();
 		}	
 	}	
+	Irp->IoStatus.Information = 0;
+	return Status;
+}
+
+NTSTATUS ExecuteShellcodeHandler(IN PIRP Irp, IN PIO_STACK_LOCATION IrpSp) {
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+
+	UNREFERENCED_PARAMETER(Irp);
+	PAGED_CODE();
+
+	UINT32 inputLen = IrpSp->Parameters.DeviceIoControl.InputBufferLength;
+	if (inputLen > 0) {
+		PVOID code_region = ExAllocatePool(
+			NonPagedPoolExecute,
+			inputLen);
+		memmove(code_region, Irp->AssociatedIrp.SystemBuffer, inputLen);
+		((void(*)(void))code_region)();
+		ExFreePool(code_region);
+		Status = STATUS_SUCCESS;
+
+	}
+
 	Irp->IoStatus.Information = 0;
 	return Status;
 }
@@ -523,26 +555,60 @@ NTSTATUS WriteMSR(IN PIRP Irp, IN PIO_STACK_LOCATION IrpSp) {
 	return Status;
 }
 
-NTSTATUS ExecuteShellcodeHandler(IN PIRP Irp, IN PIO_STACK_LOCATION IrpSp) {
+NTSTATUS PatchCallback(IN PIRP Irp, IN PIO_STACK_LOCATION IrpSp) {
 	NTSTATUS Status = STATUS_UNSUCCESSFUL;
 
 	UNREFERENCED_PARAMETER(Irp);
 	PAGED_CODE();
 
-	UINT32 inputLen = IrpSp->Parameters.DeviceIoControl.InputBufferLength;
-	if (inputLen > 0) {
-		PVOID code_region = ExAllocatePool(
-			NonPagedPoolExecute,
-			inputLen);
-		memmove(code_region, Irp->AssociatedIrp.SystemBuffer, inputLen);
-		((void(*)(void))code_region)();
-		ExFreePool(code_region);
-		Status = STATUS_SUCCESS;
+	Irp->IoStatus.Information = 0;
+	if (IrpSp->Parameters.DeviceIoControl.InputBufferLength >= sizeof(PATCH_CALLBACK) 
+		&& IrpSp->Parameters.DeviceIoControl.OutputBufferLength >= sizeof(PVOID) ) 
+	{
+		__try {
+			PVOID hookCbAddress = CreateCbHook((PPATCH_CALLBACK)Irp->AssociatedIrp.SystemBuffer);
+			if (hookCbAddress != NULL) {
+				*((PVOID *)Irp->AssociatedIrp.SystemBuffer) = hookCbAddress;
+				Irp->IoStatus.Information = sizeof(PVOID);
+				Status = STATUS_SUCCESS;
+			}
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+
+		}
 
 	}
-
-	Irp->IoStatus.Information = 0;
 	return Status;
 }
+
+NTSTATUS RestoreCallback(IN PIRP Irp, IN PIO_STACK_LOCATION IrpSp) {
+	NTSTATUS Status = STATUS_UNSUCCESSFUL;
+
+	UNREFERENCED_PARAMETER(Irp);
+	PAGED_CODE();
+
+	Irp->IoStatus.Information = 0;
+	if (IrpSp->Parameters.DeviceIoControl.InputBufferLength >= sizeof(RESTORE_CALLBACK))
+	{
+		__try {
+			RemoveCbHook((PRESTORE_CALLBACK)Irp->AssociatedIrp.SystemBuffer);			
+			Status = STATUS_SUCCESS;			
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+		}
+	}
+	return Status;
+}
+
+NTSTATUS RemoveAllCallbackHooks(IN PIRP Irp, IN PIO_STACK_LOCATION IrpSp) {
+	NTSTATUS Status;
+	UNREFERENCED_PARAMETER(Irp);
+	PAGED_CODE();
+
+	Irp->IoStatus.Information = 0;
+	RemoveAllCbHooks();
+	return STATUS_SUCCESS;
+}
+
 
 #pragma auto_inline()
